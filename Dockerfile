@@ -1,6 +1,7 @@
 FROM osrm/osrm-backend:v5.16.4
 
 ARG PBF_DATA=http://download.geofabrik.de/russia-latest.osm.pbf
+
 RUN mkdir /data
 WORKDIR /data
 RUN wget -O /data/data.osm.pbf $PBF_DATA && \
@@ -11,4 +12,4 @@ RUN wget -O /data/data.osm.pbf $PBF_DATA && \
 
 EXPOSE 5000
 
-CMD ["osrm-routed", "--algorithm mld", "/data/data.osrm"]
+CMD ["osrm-routed", "--algorithm", "mld", "/data/data.osrm"]
