@@ -29,11 +29,11 @@ spec:
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /
+              path: "/route/v1/driving/38.97429943084717,45.03586720597681;38.981852531433105,45.058850248983646?overview=false&steps=false&alternatives=false"
               port: http
           readinessProbe:
             httpGet:
-              path: /
+              path: "/route/v1/driving/38.97429943084717,45.03586720597681;38.981852531433105,45.058850248983646?overview=false&steps=false&alternatives=false"
               port: http
           resources:
 {{ toYaml .Values.resources | indent 12 }}

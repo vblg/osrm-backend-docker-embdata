@@ -4,6 +4,45 @@ import ru.etecar.HelmClient
 import ru.etecar.HelmRelease
 import ru.etecar.HelmRepository
 
+def imageTag = ""
+def buildNeeded = true
+node('gce-standard-4-ssd'){
+    cleanWs()
+    pbfRepository = "http://download.geofabrik.de/russia-latest.osm.pbf"
+    def imageRepo = 'eu.gcr.io/indigo-terra-120510'
+    def appName = 'osrm-backend-docker-embdata'
+    def lastImageTime = "0"
+    stage ('Build image') {
+        try {
+            copyArtifacts filter: 'last-timestamp', fingerprintArtifacts: true, projectName: '${env.JOB_NAME}', selector: lastSuccessful()
+            lastImageTime = sh returnStdout: true, script: 'cat last-timestamp'
+        }
+        catch (e){
+            echo "Assuming that is first time build, because there is no artifacts"
+            lastImageTime = "0"
+        }
+        def pbfDate = sh returnStdout: true, script: "DATE_MODIFIED=`curl -s -I ${pbfRepository}|grep Last-Modified|cut -d: -f2-|cut -d' ' -f2-6` && echo -n `date -d\"\$DATE_MODIFIED\" +%s`"
+        if (pbfDate.toInteger() < lastImageTime.toInteger()) {
+            imageTag = sh returnStdout: true, script: "echo -n \"russia-`date -d@${pbfDate} +%Y%m%d`\""
+            withCredentials([file(credentialsId: 'google-docker-repo', variable: 'CREDENTIALS')]) {
+                sh "mkdir -p ~/.docker && cat \"${CREDENTIALS}\" > ~/.docker/config.json"
+            }
+            docker.withRegistry("${imageRepo}"){
+                def appImage = docker.build("${appName}:${imageTag}")
+                appImage.push()
+            }            
+        }
+        else {
+            echo "No changes in geofabric repo. No build needed"
+            buildNeeded = false
+        }        
+    }
+}
+if ( ! buildNeeded ){
+    currentBuild.result = 'SUCCESS'
+    return
+}
+
 node ('docker-server'){
     Libs utils = new Libs(steps)
     HelmClient helm = new HelmClient(steps)
@@ -11,7 +50,6 @@ node ('docker-server'){
     try {
         cleanWs()
         appName = 'osrm-backend-docker-embdata'
-        imageTag = "russia-20180405"
         kubeProdContext = "google-system"
 
         checkout scm
