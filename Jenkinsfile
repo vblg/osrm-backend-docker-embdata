@@ -51,10 +51,10 @@ node('gce-standard-4-ssd'){
             withCredentials([file(credentialsId: 'google-docker-repo', variable: 'CREDENTIALS')]) {
                 sh "mkdir -p ~/.docker && cat \"${CREDENTIALS}\" > ~/.docker/config.json"
             }
-            docker.withRegistry("${imageRepo}"){
-                def appImage = docker.build("${appName}:${imageTag}")
-                appImage.push()
-            }
+//            docker.withRegistry("${imageRepo}"){
+//                def appImage = docker.build("${appName}:${imageTag}")
+//                appImage.push()
+//            }
         }
         else {
             throw new Exception("no changes in geofabric repo. No build needed");
@@ -82,6 +82,7 @@ node ('docker-server'){
 
         stage ('Production') {
             def stage = "production"
+            imageTag = "russia-20180405"
             def apiProdHostname = "maps.etecar.ru"
             HelmRelease osrmRelease = new HelmRelease(steps, "${appName}", "helmrepo/${appName}")
 
