@@ -1,4 +1,5 @@
-FROM osrm/osrm-backend:v5.16.4
+FROM eu.gcr.io/indigo-terra-120510/osrm-backend-docker-embdata:russia-20180405
+#FROM osrm/osrm-backend:v5.16.4
 
 ARG PBF_DATA=http://download.geofabrik.de/russia-latest.osm.pbf
 
