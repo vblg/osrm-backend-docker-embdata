@@ -10,7 +10,7 @@ import static java.time.format.DateTimeFormatter.BASIC_ISO_DATE
 def imageTag = ""
 def buildNeeded = true
 def pbfRepository = "http://download.geofabrik.de/russia-latest.osm.pbf"
-def imageRepo = 'eu.gcr.io/indigo-terra-120510'
+def imageRepo = 'https://eu.gcr.io/indigo-terra-120510'
 def appName = 'osrm-backend-docker-embdata'
 def lastImageTime
 
