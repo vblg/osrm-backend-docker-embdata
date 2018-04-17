@@ -53,7 +53,7 @@ node('gce-standard-4-ssd'){
         sh "echo -n \"${pbfDate.format(RFC_1123_DATE_TIME)}\"> pbf-timestamp"
         archiveArtifacts 'pbf-timestamp'
         withCredentials([file(credentialsId: 'google-docker-repo', variable: 'CREDENTIALS')]) {
-            sh "mkdir -p ~/.docker && echo \"${CREDENTIALS}\" > ~/.docker/config.json"
+            sh "mkdir -p ~/.docker && cat \"${CREDENTIALS}\" > ~/.docker/config.json"
         }
         
         sh "docker build -t ${imageRepo}/${appName}:${imageTag} . && docker push ${imageRepo}/${appName}:${imageTag}"
