@@ -10,7 +10,7 @@ import static java.time.format.DateTimeFormatter.BASIC_ISO_DATE
 def imageTag = ""
 def buildNeeded = true
 def pbfRepository = "http://download.geofabrik.de/russia-latest.osm.pbf"
-def imageRepo = 'https://eu.gcr.io/indigo-terra-120510'
+def imageRepo = 'eu.gcr.io/indigo-terra-120510'
 def appName = 'osrm-backend-docker-embdata'
 def lastImageTime
 
@@ -53,12 +53,10 @@ node('gce-standard-4-ssd'){
         sh "echo -n \"${pbfDate.format(RFC_1123_DATE_TIME)}\"> pbf-timestamp"
         archiveArtifacts 'pbf-timestamp'
         withCredentials([file(credentialsId: 'google-docker-repo', variable: 'CREDENTIALS')]) {
-            sh "mkdir -p ~/.docker && cat \"${CREDENTIALS}\" > ~/.docker/config.json"
+            sh "mkdir -p ~/.docker && echo \"${CREDENTIALS}\" > ~/.docker/config.json"
         }
-        docker.withRegistry("${imageRepo}"){
-            def appImage = docker.build("${appName}:${imageTag}")
-            appImage.push()
-        }
+        
+        sh "docker build -t ${imageRepo}/${appName}:${imageTag} . && docker push ${imageRepo}/${appName}:${imageTag}"
     }
 }
 
