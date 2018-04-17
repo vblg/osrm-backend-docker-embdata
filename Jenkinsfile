@@ -3,28 +3,50 @@ import ru.etecar.Libs
 import ru.etecar.HelmClient
 import ru.etecar.HelmRelease
 import ru.etecar.HelmRepository
+import java.time.ZonedDateTime
+import static java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME
+import static java.time.format.DateTimeFormatter.BASIC_ISO_DATE
 
 def imageTag = ""
 def buildNeeded = true
 def pbfRepository = "http://download.geofabrik.de/russia-latest.osm.pbf"
 def imageRepo = 'eu.gcr.io/indigo-terra-120510'
 def appName = 'osrm-backend-docker-embdata'
+def lastImageTime
+
+@NonCPS
+String getLastPbfTimestamp(String url) {
+    def baseUrl = new URL(url);
+    HttpURLConnection connection = (HttpURLConnection) baseUrl.openConnection();
+    connection.addRequestProperty("Accept", "application/json");
+    connection.with {
+        doOutput = false
+        requestMethod = 'GET'
+    }
+    return connection.getHeaderField("Last-Modified");
+}
 
 node('gce-standard-4-ssd'){
     cleanWs()
-    def lastImageTime = "0"
     stage ('Build image') {
         try {
-            copyArtifacts filter: 'pbf-timestamp', fingerprintArtifacts: true, projectName: '${env.JOB_NAME}', selector: lastSuccessful()
+            copyArtifacts filter: 'pbf-timestamp', fingerprintArtifacts: true, projectName: "${env.JOB_NAME}", selector: lastSuccessful()
             lastImageTime = sh returnStdout: true, script: 'cat pbf-timestamp'
         }
         catch (e){
-            echo "Assuming that is first time build, because there is no artifacts"
-            lastImageTime = "0"
+            echo "Assuming that it's first time build"
+            lastImageTime = "Mon, 5 Jan 1970 00:00:00 GMT"
         }
-        def pbfDate = sh returnStdout: true, script: "DATE_MODIFIED=`curl -s -I ${pbfRepository}|grep Last-Modified|cut -d: -f2-|cut -d' ' -f2-6` && echo -n `date -d\"\$DATE_MODIFIED\" +%s`"
-        if (pbfDate.toInteger() < lastImageTime.toInteger()) {
-            imageTag = sh returnStdout: true, script: "echo -n \"russia-`date -d@${lastImageTime} +%Y%m%d`\" > pbf-timestamp && cat pbf-timestamp"
+        
+        def lastModefied = getLastPbfTimestamp(pbfRepository);
+        echo "lastModefied: ${lastModefied}"
+        previousPbfDate = ZonedDateTime.parse(lastImageTime, RFC_1123_DATE_TIME);
+        echo "previousPbfDate: ${previousPbfDate.format(RFC_1123_DATE_TIME)}"
+        ZonedDateTime pbfDate = ZonedDateTime.parse(lastModefied, RFC_1123_DATE_TIME);
+        
+        if (pbfDate.isAfter(previousPbfDate)) {
+            imageTag = "russia-${pbfDate.format(BASIC_ISO_DATE)}";
+            sh "echo -n \"${pbfDate.format(RFC_1123_DATE_TIME)}\"> pbf-timestamp"
             archiveArtifacts 'pbf-timestamp'
             withCredentials([file(credentialsId: 'google-docker-repo', variable: 'CREDENTIALS')]) {
                 sh "mkdir -p ~/.docker && cat \"${CREDENTIALS}\" > ~/.docker/config.json"
@@ -32,17 +54,12 @@ node('gce-standard-4-ssd'){
             docker.withRegistry("${imageRepo}"){
                 def appImage = docker.build("${appName}:${imageTag}")
                 appImage.push()
-            }            
+            }
         }
         else {
-            echo "No changes in geofabric repo. No build needed"
-            buildNeeded = false
-        }        
+            throw new Exception("no changes in geofabric repo. No build needed");
+        }
     }
-}
-if ( ! buildNeeded ){
-    currentBuild.result = 'FAILED'
-    return
 }
 
 node ('docker-server'){
@@ -57,7 +74,7 @@ node ('docker-server'){
         helm.init('helm')
         helm.repoAdd(repo)
 
-        stage('Build'){
+        stage('Build helm package'){
             withCredentials([usernameColonPassword(credentialsId: "nexus", variable: 'CREDENTIALS')]) {
                 repo.push(helm.buildPacket("helm/${appName}/Chart.yaml"), CREDENTIALS, "helm-repo")
             }
