@@ -28,6 +28,7 @@ String getLastPbfTimestamp(String url) {
 
 node('gce-standard-4-ssd'){
     cleanWs()
+    checkout scm
     stage ('Build image') {
         try {
             copyArtifacts filter: 'pbf-timestamp', fingerprintArtifacts: true, projectName: "${env.JOB_NAME}", selector: lastSuccessful()
@@ -44,20 +45,19 @@ node('gce-standard-4-ssd'){
         echo "previousPbfDate: ${previousPbfDate.format(RFC_1123_DATE_TIME)}"
         ZonedDateTime pbfDate = ZonedDateTime.parse(lastModefied, RFC_1123_DATE_TIME);
         
-        if (pbfDate.isAfter(previousPbfDate)) {
-            imageTag = "russia-${pbfDate.format(BASIC_ISO_DATE)}";
-            sh "echo -n \"${pbfDate.format(RFC_1123_DATE_TIME)}\"> pbf-timestamp"
-            archiveArtifacts 'pbf-timestamp'
-            withCredentials([file(credentialsId: 'google-docker-repo', variable: 'CREDENTIALS')]) {
-                sh "mkdir -p ~/.docker && cat \"${CREDENTIALS}\" > ~/.docker/config.json"
-            }
-            docker.withRegistry("${imageRepo}"){
-                def appImage = docker.build("${appName}:${imageTag}")
-                appImage.push()
-            }
-        }
-        else {
+        if (!pbfDate.isAfter(previousPbfDate)) {
             throw new Exception("no changes in geofabric repo. No build needed");
+        }
+        
+        imageTag = "russia-${pbfDate.format(BASIC_ISO_DATE)}";
+        sh "echo -n \"${pbfDate.format(RFC_1123_DATE_TIME)}\"> pbf-timestamp"
+        archiveArtifacts 'pbf-timestamp'
+        withCredentials([file(credentialsId: 'google-docker-repo', variable: 'CREDENTIALS')]) {
+            sh "mkdir -p ~/.docker && cat \"${CREDENTIALS}\" > ~/.docker/config.json"
+        }
+        docker.withRegistry("${imageRepo}"){
+            def appImage = docker.build("${appName}:${imageTag}")
+            appImage.push()
         }
     }
 }
