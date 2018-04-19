@@ -8,7 +8,6 @@ import static java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME
 import static java.time.format.DateTimeFormatter.BASIC_ISO_DATE
 
 def imageTag = ""
-def buildNeeded = true
 def pbfRepository = "http://download.geofabrik.de/russia-latest.osm.pbf"
 def imageRepo = 'eu.gcr.io/indigo-terra-120510'
 def appName = 'osrm-backend-docker-embdata'
@@ -94,7 +93,7 @@ node ('docker-server'){
                         "image.tag" : "${imageTag}"
                 ]
                 helm.upgrade( osrmRelease )
-                helm.waitForDeploy(osrmRelease, 400)
+                helm.waitForDeploy(osrmRelease, 800)
             } catch (e) {
                 helm.rollback(osrmRelease)
                 throw e
