@@ -45,6 +45,11 @@ resources:
 
 nodeSelector: {}
 
-tolerations: []
+tolerations:
+  - key: "preemptible"
+    operator: "Equal"
+    value: true
+    effect: "NoSchedule"
+
 
 affinity: {}
